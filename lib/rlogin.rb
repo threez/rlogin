@@ -3,20 +3,100 @@ require 'socket'
 module Net
   # This class implements the BSD Rlogin as it is defined in the RFC 1282.
   class Rlogin
+    # The server returns a zero byte to indicate that it has received four
+    # null-terminated strings
     RECEIVED_SETTINGS         = 0x00
+    
+    # The window change control sequence is 12 bytes in length, consisting
+    # of a magic cookie (two consecutive bytes of hex FF), followed by two
+    # bytes containing lower-case ASCII "s", then 8 bytes containing the
+    # 16-bit values for the number of character rows, the number of
+    # characters per row, the number of pixels in the X direction, and the
+    # number of pixels in the Y direction, in network byte order.  Thus:
+    #
+    #  FF FF s s rr cc xp yp
+    #
+    # Other flags than "ss" may be used in future for other in-band control
+    # messages.  None are currently defined.
     WINDOW_SIZE_MAGIC_COOKIE  = "\xff\xffss"
+    
+    # A control byte of hex 02 causes the client to discard all buffered
+    # data received from the server that has not yet been written to the
+    # client user's screen.
     REQUEST_CLEAR_BUFFER      = 0x02
+    
+    # A control byte of hex 10 commands the client to switch to "raw"
+    # mode, where the START and STOP characters are no longer handled by
+    # the client, but are instead treated as plain data.
     REQUEST_SWITCH_TO_RAW     = 0x10
+    
+    # A control byte of hex 20 commands the client to resume interception
+    # and local processing of START and STOP flow control characters.
     REQUEST_SWITCH_TO_NORMAL  = 0x20
+    
+    # The client responds by sending the current window size as above.
     REQUEST_WINDOW_SIZE       = 0x80
     
-    attr_reader :host, :port, :username, :password, :local_host, :local_port,
-                :client_user_name, :server_user_name, :terminal_type, :speed,
-                :rows, :columns, :pixel_x, :pixel_y, :login_token, 
-                :password_token, :prompt, :logout_token, :logger
+    # hostname, dns or ipadress of the remote server
+    attr_reader :host
+    
+    # port of the rlogind daemon on the remote server (DEFAULT: 513)
+    attr_reader :port
+    
+    # username used for login
+    attr_reader :username
+    
+    # password used for login
+    attr_reader :password
+    
+    # the interface to connect from (DEFAULT: 0.0.0.0)
+    attr_reader :local_host
+    
+    # the port to connect from (DEFAULT: 1023)
+    attr_reader :local_port
+    
+    # client user name (DEFAULT: "")
+    attr_reader :client_user_name
+    
+    # server user name (DEFAULT: "")
+    attr_reader :server_user_name
+    
+    # the terminal type (DEFAULT: xterm)
+    attr_reader :terminal_type
+    
+    # the terminal boud rate (DEFAULT: 38400)
+    attr_reader :speed
+    
+    # rows of the emulated terminal (DEFAULT: 24)
+    attr_reader :rows
+    
+    # columns of the emulated terminal (DEFAULT: 80)
+    attr_reader :columns
+    
+    # x pixel of the emulated terminal (DEFAULT: 0)
+    attr_reader :pixel_x
+    
+    # y pixel of the emulated terminal (DEFAULT: 0)
+    attr_reader :pixel_y
+    
+    # the login regex (DEFAULT: /login:\s$/)
+    attr_reader :login_token
+    
+    # the password regex (DEFAULT: /Password:\s$/)
+    attr_reader :password_token
+    
+    # the prompt regex (DEFAULT: /^[^\n]*[#\$]> $/)
+    attr_reader :prompt
+    
+    # the logout regex (DEFAULT: /exit\s+logout$/)
+    attr_reader :logout_token
+    
+    # the logger that will be used for logging messages
+    attr_reader :logger
                 
     # Creates a new Rlogin client for the passed host and username. Additonal 
-    # parameter can be passed as a options hash. Options are:
+    # parameter can be passed as a options hash. If no password is passed,
+    # the client will connect without password auth. Options are:
     # :host:: hostname, dns or ipadress of the remote server
     # :port:: port of the rlogind daemon on the remote server (DEFAULT: 513)
     # :username:: username used for login
